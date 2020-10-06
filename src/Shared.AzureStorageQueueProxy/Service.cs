@@ -1,16 +1,15 @@
 ﻿#region Using Statements
-using Microsoft.Azure.Storage;
-using Microsoft.Azure.Storage.Queue;
+using Azure.Storage.Queues; // Namespace for Queue storage types
+using Azure.Storage.Queues.Models; // Namespace for PeekedMessage
 using System;
-using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using System.Threading.Tasks;
 #endregion
 
 namespace Shared.AzureStorageQueueProxy
 {
-    // https://github.com/Azure/azure-storage-net/tree/master/Samples/GettingStarted/VisualStudioQuickStarts/DataStorageQueue
+    // https://docs.microsoft.com/en-us/azure/storage/queues/storage-dotnet-how-to-use-queues
 
-    [ExcludeFromCodeCoverage]
     public class Service : IService
     {
         public string ErrorMessage { get; set; }
@@ -35,93 +34,23 @@ namespace Shared.AzureStorageQueueProxy
             set { _connectionString = value; }
         }
 
-        private CloudQueue _currentQueue;
-        private CloudQueueMessage _currentMessage;
-       
-        private CloudStorageAccount CreateStorageAccountFromConnectionString(string storageConnectionString)
+        public async Task<MessageFacade> CreateMessageAsync(string queueName, string message)
         {
-            CloudStorageAccount storageAccount = null;
+            MessageFacade toReturn = null;
             try
             {
-                storageAccount = CloudStorageAccount.Parse(storageConnectionString);
-            }
-            catch (FormatException)
-            {
-                this.ErrorMessage = "Invalid storage account information provided in config.";
-
-            }
-            catch (ArgumentException)
-            {
-                this.ErrorMessage = "Invalid storage account information provided in config.";
-            }
-            return storageAccount;
-        }
-
-        private async Task<CloudQueue> GetQueueReference(string queueName)
-        {
-            CloudQueue cloudQueue = null;
-            try
-            {
-                CloudStorageAccount storageAccount = CreateStorageAccountFromConnectionString(this.ConnectionString);
-                CloudQueueClient queueClient = storageAccount.CreateCloudQueueClient();
-
-                cloudQueue = queueClient.GetQueueReference(queueName);
-                await cloudQueue.CreateIfNotExistsAsync();
-            }
-            catch (StorageException exStorage)
-            {
-                this.ErrorMessage = exStorage.ToString();
-            }
-            catch (Exception ex)
-            {
-                this.ErrorMessage = ex.ToString();
-            }
-            return cloudQueue;
-        }
-
-        /// <summary>
-        /// Create a new messaage in the queue.
-        /// </summary>
-        /// <param name="queueName">Name of the queue</param>
-        /// <param name="message">Any text message; including json</param>
-        /// <returns></returns>
-        public async Task CreateMessage(string queueName, string message)
-        {
-            try
-            {
-                CloudQueue cloudQueue = await this.GetQueueReference(queueName);
-                await cloudQueue.AddMessageAsync(new CloudQueueMessage(message));
-            }
-            catch (StorageException exStorage)
-            {
-                this.ErrorMessage = exStorage.ToString();
-            }
-            catch (Exception ex)
-            {
-                this.ErrorMessage = ex.ToString();
-            }
-        }
-
-        /// <summary>
-        /// Peek the next message in the queue.
-        /// </summary>
-        /// <param name="queueName">Name of the queue</param>
-        /// <returns></returns>
-        public async Task<string> PeekMessage(string queueName)
-        {
-            string toReturn = null;
-            try
-            {
-                CloudQueue cloudQueue = await this.GetQueueReference(queueName);
-                CloudQueueMessage peekedMessage = await cloudQueue.PeekMessageAsync();
-                if(peekedMessage != null)
+                QueueClient queueClient = new QueueClient(this.ConnectionString, queueName);
+                if (queueClient.Exists())
                 {
-                    toReturn = peekedMessage.AsString;
+                    // Send a message to the queue
+                    var receipt = await queueClient.SendMessageAsync(message);
+                    toReturn = new MessageFacade()
+                    {
+                        MessageId = receipt.Value.MessageId,
+                        MessageTexty = message,
+                        PopReceipt = receipt.Value.PopReceipt
+                    };
                 }
-            }
-            catch (StorageException exStorage)
-            {
-                this.ErrorMessage = exStorage.ToString();
             }
             catch (Exception ex)
             {
@@ -130,26 +59,24 @@ namespace Shared.AzureStorageQueueProxy
             return toReturn;
         }
 
-        /// <summary>
-        /// Read the next message in the queue.
-        /// </summary>
-        /// <param name="queueName">Name of the queue</param>
-        /// <returns></returns>
-        public async Task<string> ReadMessage(string queueName)
+        public async Task<MessageFacade> PeekMessageAsync(string queueName)
         {
-            string toReturn = null;
+            MessageFacade toReturn = null;
             try
             {
-                _currentQueue = await this.GetQueueReference(queueName);
-                _currentMessage = await _currentQueue.GetMessageAsync();
-                if (_currentMessage != null)
+                QueueClient queueClient = new QueueClient(this.ConnectionString, queueName);
+                if (queueClient.Exists())
                 {
-                    toReturn = _currentMessage.AsString;
+                    PeekedMessage[] peekedMessage = await queueClient.PeekMessagesAsync();
+                    if (peekedMessage != null && peekedMessage.ToList().Count > 0)
+                    {
+                        toReturn = new MessageFacade()
+                        {
+                            MessageId = peekedMessage[0].MessageId,
+                            MessageTexty = peekedMessage[0].MessageText
+                        };
+                    }
                 }
-            }
-            catch (StorageException exStorage)
-            {
-                this.ErrorMessage = exStorage.ToString();
             }
             catch (Exception ex)
             {
@@ -158,32 +85,42 @@ namespace Shared.AzureStorageQueueProxy
             return toReturn;
         }
 
-        /// <summary>
-        /// Delete the current message.
-        /// </summary>
-        /// <returns></returns>
-        public async Task DeleteMessage()
+        public async Task<MessageFacade> ReadMessageAsync(string queueName, int? dequeueTimeoutSeconds = 30)
+        {
+            MessageFacade toReturn = null;
+            try
+            {
+                QueueClient queueClient = new QueueClient(this.ConnectionString, queueName);
+                if (queueClient.Exists())
+                {
+                    QueueMessage[] retrievedMessage = await queueClient.ReceiveMessagesAsync(1, TimeSpan.FromSeconds((double)dequeueTimeoutSeconds));
+                    if (retrievedMessage != null && retrievedMessage.ToList().Count > 0)
+                    {
+                        toReturn = new MessageFacade()
+                        {
+                            MessageId = retrievedMessage[0].MessageId,
+                            MessageTexty = retrievedMessage[0].MessageText,
+                            PopReceipt = retrievedMessage[0].PopReceipt
+                        };
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                this.ErrorMessage = ex.ToString();
+            }
+            return toReturn;
+        }
+
+        public async Task DeleteMessageAsync(string queueName, string messageId, string popReceipt)
         {
             try
             {
-                if (_currentQueue == null)
+                QueueClient queueClient = new QueueClient(this.ConnectionString, queueName);
+                if (queueClient.Exists())
                 {
-                    this.ErrorMessage = "Current queue not set.";
-                    return;
+                    await queueClient.DeleteMessageAsync(messageId, popReceipt);
                 }
-
-                if (_currentMessage != null)
-                {
-                    await _currentQueue.DeleteMessageAsync(_currentMessage);
-                }
-                else
-                {
-                    this.ErrorMessage = "Current messasge not set.";
-                }
-            }
-            catch (StorageException exStorage)
-            {
-                this.ErrorMessage = exStorage.ToString();
             }
             catch (Exception ex)
             {
@@ -191,36 +128,94 @@ namespace Shared.AzureStorageQueueProxy
             }
         }
 
-        /// <summary>
-        /// Reset the current message's visibility.
-        /// </summary>
-        /// <returns></returns>
-        public async Task ResetMessageVisibility()
+
+        public MessageFacade CreateMessage(string queueName, string message)
+        {
+            MessageFacade toReturn = null;
+            try
+            {
+                QueueClient queueClient = new QueueClient(this.ConnectionString, queueName);
+                if (queueClient.Exists())
+                {
+                    // Send a message to the queue
+                    var receipt = queueClient.SendMessage(message);
+                    toReturn = new MessageFacade()
+                    {
+                        MessageId = receipt.Value.MessageId,
+                        MessageTexty = message,
+                        PopReceipt = receipt.Value.PopReceipt
+                    };
+                }
+            }
+            catch (Exception ex)
+            {
+                this.ErrorMessage = ex.ToString();
+            }
+            return toReturn;
+        }
+
+        public MessageFacade PeekMessage(string queueName)
+        {
+            MessageFacade toReturn = null;
+            try
+            {
+                QueueClient queueClient = new QueueClient(this.ConnectionString, queueName);
+                if (queueClient.Exists())
+                {
+                    PeekedMessage[] peekedMessage = queueClient.PeekMessages();
+                    if (peekedMessage != null && peekedMessage.ToList().Count > 0)
+                    {
+                        toReturn = new MessageFacade()
+                        {
+                            MessageId = peekedMessage[0].MessageId,
+                            MessageTexty = peekedMessage[0].MessageText
+                        };
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                this.ErrorMessage = ex.ToString();
+            }
+            return toReturn;
+        }
+
+        public MessageFacade ReadMessage(string queueName, int? dequeueTimeoutSeconds = 30)
+        {
+            MessageFacade toReturn = null;
+            try
+            {
+                QueueClient queueClient = new QueueClient(this.ConnectionString, queueName);
+                if (queueClient.Exists())
+                {
+                    QueueMessage[] retrievedMessage = queueClient.ReceiveMessages(1, TimeSpan.FromSeconds((double)dequeueTimeoutSeconds));
+                    if (retrievedMessage != null && retrievedMessage.ToList().Count > 0)
+                    {
+                        toReturn = new MessageFacade()
+                        {
+                            MessageId = retrievedMessage[0].MessageId,
+                            MessageTexty = retrievedMessage[0].MessageText,
+                            PopReceipt = retrievedMessage[0].PopReceipt
+                        };
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                this.ErrorMessage = ex.ToString();
+            }
+            return toReturn;
+        }
+
+        public void DeleteMessage(string queueName, string messageId, string popReceipt)
         {
             try
             {
-                if (_currentQueue == null)
+                QueueClient queueClient = new QueueClient(this.ConnectionString, queueName);
+                if (queueClient.Exists())
                 {
-                    this.ErrorMessage = "Current queue not set.";
-                    return;
+                    queueClient.DeleteMessage(messageId, popReceipt);
                 }
-
-                if (_currentMessage != null)
-                {
-                    await _currentQueue.UpdateMessageAsync(
-                        _currentMessage,
-                        TimeSpan.Zero,  // update visible immediately
-                        MessageUpdateFields.Content |
-                        MessageUpdateFields.Visibility);
-                }
-                else
-                {
-                    this.ErrorMessage = "Current messasge not set.";
-                }
-            }
-            catch (StorageException exStorage)
-            {
-                this.ErrorMessage = exStorage.ToString();
             }
             catch (Exception ex)
             {
