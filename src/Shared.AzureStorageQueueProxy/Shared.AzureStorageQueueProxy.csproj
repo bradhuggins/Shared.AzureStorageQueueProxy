@@ -4,8 +4,8 @@
     <TargetFramework>netstandard2.0</TargetFramework>
     <Authors>Brad Huggins</Authors>
     <Company>Brad Huggins</Company>
-    <AssemblyVersion>0.6.0.0</AssemblyVersion>
-    <Version>0.6.0</Version>
+    <AssemblyVersion>0.6.1.0</AssemblyVersion>
+    <Version>0.6.1</Version>
     <Description>Shared helper library for implementing Azure Storage Queue</Description>
     <RepositoryUrl>https://github.com/bradhuggins/Shared.AzureStorageQueueProxy</RepositoryUrl>
     <RepositoryType>GitHub</RepositoryType>
@@ -30,7 +30,6 @@
   
   <ItemGroup>
     <PackageReference Include="Azure.Storage.Queues" Version="12.4.2" />
-    <PackageReference Include="Microsoft.Azure.Storage.Queue" Version="11.2.0" />
   </ItemGroup>
   
 </Project>

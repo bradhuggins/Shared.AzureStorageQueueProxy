@@ -4,7 +4,7 @@
     {
         public string MessageId { get; set; }
 
-        public string MessageTexty { get; set; }
+        public string MessageText { get; set; }
 
         public string PopReceipt { get; set; }
     }

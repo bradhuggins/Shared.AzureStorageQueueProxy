@@ -47,7 +47,7 @@ namespace Shared.AzureStorageQueueProxy
                     toReturn = new MessageFacade()
                     {
                         MessageId = receipt.Value.MessageId,
-                        MessageTexty = message,
+                        MessageText = message,
                         PopReceipt = receipt.Value.PopReceipt
                     };
                 }
@@ -73,7 +73,7 @@ namespace Shared.AzureStorageQueueProxy
                         toReturn = new MessageFacade()
                         {
                             MessageId = peekedMessage[0].MessageId,
-                            MessageTexty = peekedMessage[0].MessageText
+                            MessageText = peekedMessage[0].MessageText
                         };
                     }
                 }
@@ -99,7 +99,7 @@ namespace Shared.AzureStorageQueueProxy
                         toReturn = new MessageFacade()
                         {
                             MessageId = retrievedMessage[0].MessageId,
-                            MessageTexty = retrievedMessage[0].MessageText,
+                            MessageText = retrievedMessage[0].MessageText,
                             PopReceipt = retrievedMessage[0].PopReceipt
                         };
                     }
@@ -142,7 +142,7 @@ namespace Shared.AzureStorageQueueProxy
                     toReturn = new MessageFacade()
                     {
                         MessageId = receipt.Value.MessageId,
-                        MessageTexty = message,
+                        MessageText = message,
                         PopReceipt = receipt.Value.PopReceipt
                     };
                 }
@@ -168,7 +168,7 @@ namespace Shared.AzureStorageQueueProxy
                         toReturn = new MessageFacade()
                         {
                             MessageId = peekedMessage[0].MessageId,
-                            MessageTexty = peekedMessage[0].MessageText
+                            MessageText = peekedMessage[0].MessageText
                         };
                     }
                 }
@@ -194,7 +194,7 @@ namespace Shared.AzureStorageQueueProxy
                         toReturn = new MessageFacade()
                         {
                             MessageId = retrievedMessage[0].MessageId,
-                            MessageTexty = retrievedMessage[0].MessageText,
+                            MessageText = retrievedMessage[0].MessageText,
                             PopReceipt = retrievedMessage[0].PopReceipt
                         };
                     }
