@@ -40,17 +40,14 @@ namespace Shared.AzureStorageQueueProxy
             try
             {
                 QueueClient queueClient = new QueueClient(this.ConnectionString, queueName);
-                if (queueClient.Exists())
+                await queueClient.CreateIfNotExistsAsync();
+                var receipt = await queueClient.SendMessageAsync(message);
+                toReturn = new MessageFacade()
                 {
-                    // Send a message to the queue
-                    var receipt = await queueClient.SendMessageAsync(message);
-                    toReturn = new MessageFacade()
-                    {
-                        MessageId = receipt.Value.MessageId,
-                        MessageText = message,
-                        PopReceipt = receipt.Value.PopReceipt
-                    };
-                }
+                    MessageId = receipt.Value.MessageId,
+                    MessageText = message,
+                    PopReceipt = receipt.Value.PopReceipt
+                };
             }
             catch (Exception ex)
             {
@@ -67,8 +64,8 @@ namespace Shared.AzureStorageQueueProxy
                 QueueClient queueClient = new QueueClient(this.ConnectionString, queueName);
                 if (queueClient.Exists())
                 {
-                    PeekedMessage[] peekedMessage = await queueClient.PeekMessagesAsync();
-                    if (peekedMessage != null && peekedMessage.ToList().Count > 0)
+                    PeekedMessage[] peekedMessage = await queueClient.PeekMessagesAsync(1);
+                    if (peekedMessage != null && peekedMessage.ToList().Count == 1)
                     {
                         toReturn = new MessageFacade()
                         {
@@ -94,7 +91,7 @@ namespace Shared.AzureStorageQueueProxy
                 if (queueClient.Exists())
                 {
                     QueueMessage[] retrievedMessage = await queueClient.ReceiveMessagesAsync(1, TimeSpan.FromSeconds((double)dequeueTimeoutSeconds));
-                    if (retrievedMessage != null && retrievedMessage.ToList().Count > 0)
+                    if (retrievedMessage != null && retrievedMessage.ToList().Count == 1)
                     {
                         toReturn = new MessageFacade()
                         {
@@ -135,17 +132,14 @@ namespace Shared.AzureStorageQueueProxy
             try
             {
                 QueueClient queueClient = new QueueClient(this.ConnectionString, queueName);
-                if (queueClient.Exists())
+                queueClient.CreateIfNotExists();
+                var receipt = queueClient.SendMessage(message);
+                toReturn = new MessageFacade()
                 {
-                    // Send a message to the queue
-                    var receipt = queueClient.SendMessage(message);
-                    toReturn = new MessageFacade()
-                    {
-                        MessageId = receipt.Value.MessageId,
-                        MessageText = message,
-                        PopReceipt = receipt.Value.PopReceipt
-                    };
-                }
+                    MessageId = receipt.Value.MessageId,
+                    MessageText = message,
+                    PopReceipt = receipt.Value.PopReceipt
+                };                
             }
             catch (Exception ex)
             {
@@ -162,8 +156,8 @@ namespace Shared.AzureStorageQueueProxy
                 QueueClient queueClient = new QueueClient(this.ConnectionString, queueName);
                 if (queueClient.Exists())
                 {
-                    PeekedMessage[] peekedMessage = queueClient.PeekMessages();
-                    if (peekedMessage != null && peekedMessage.ToList().Count > 0)
+                    PeekedMessage[] peekedMessage = queueClient.PeekMessages(1);
+                    if (peekedMessage != null && peekedMessage.ToList().Count == 1)
                     {
                         toReturn = new MessageFacade()
                         {
@@ -189,7 +183,7 @@ namespace Shared.AzureStorageQueueProxy
                 if (queueClient.Exists())
                 {
                     QueueMessage[] retrievedMessage = queueClient.ReceiveMessages(1, TimeSpan.FromSeconds((double)dequeueTimeoutSeconds));
-                    if (retrievedMessage != null && retrievedMessage.ToList().Count > 0)
+                    if (retrievedMessage != null && retrievedMessage.ToList().Count == 1)
                     {
                         toReturn = new MessageFacade()
                         {
